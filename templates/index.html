@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<title>Trang chủ</title>
+
+<link rel="stylesheet"
+href="{{ url_for('static', filename='style.css') }}">
+
+</head>
+<body>
+
+<div class="container">
+
+<h1>Tra cứu tài liệu</h1>
+
+<div class="menu">
+
+<a href="/add">Thêm tài liệu</a>
+
+<a href="/search">Tìm kiếm</a>
+
+<a href="/logout">Đăng xuất</a>
+
+</div>
+
+<table>
+
+<tr>
+<th>STT</th>
+<th>Tên tài liệu</th>
+<th>Thể loại</th>
+<th>Chỉnh sửa</th>
+<th>Xóa</th>
+</tr>
+
+{% for doc in documents %}
+
+<tr>
+
+<td>{{ loop.index }}</td>
+
+<td>{{ doc.title }}</td>
+
+<td>{{ doc.category }}</td>
+
+<td>
+<a href="/edit/{{ doc.id }}">
+Sửa
+</a>
+</td>
+
+<td>
+<a href="/delete/{{ doc.id }}">
+Xóa
+</a>
+</td>
+
+</tr>
+
+{% endfor %}
+
+</table>
+
+</div>
+
+</body>
+</html>

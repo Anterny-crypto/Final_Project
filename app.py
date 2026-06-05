@@ -1,0 +1,270 @@
+from flask import Flask, render_template, request, redirect, session, url_for
+from flask_sqlalchemy import SQLAlchemy
+from werkzeug.utils import secure_filename
+import os
+
+app = Flask(__name__)
+
+# Cấu hình database
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///documents.db'
+
+# Khóa session
+app.secret_key = "abc123"
+
+# Thư mục lưu file upload
+UPLOAD_FOLDER = "uploads"
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+
+db = SQLAlchemy(app)
+
+# ======================
+# BẢNG USER
+# ======================
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+
+    username = db.Column(
+        db.String(100),
+        unique=True,
+        nullable=False
+    )
+
+    password = db.Column(
+        db.String(100),
+        nullable=False
+    )
+
+# ======================
+# BẢNG DOCUMENT
+# ======================
+class Document(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+
+    title = db.Column(
+        db.String(200),
+        nullable=False
+    )
+
+    category = db.Column(
+        db.String(100),
+        nullable=False
+    )
+
+    file_path = db.Column(
+        db.String(300)
+    )
+
+# ======================
+# TẠO DATABASE
+# ======================
+with app.app_context():
+    db.create_all()
+
+    if not os.path.exists(UPLOAD_FOLDER):
+        os.makedirs(UPLOAD_FOLDER)
+
+# ======================
+# LOGIN
+# ======================
+@app.route("/", methods=["GET", "POST"])
+def login():
+
+    if request.method == "POST":
+
+        username = request.form["username"]
+        password = request.form["password"]
+
+        user = User.query.filter_by(
+            username=username,
+            password=password
+        ).first()
+
+        if user:
+            session["user"] = username
+            return redirect("/index")
+
+        return "Sai tài khoản hoặc mật khẩu"
+
+    return render_template("login.html")
+
+# ======================
+# REGISTER
+# ======================
+@app.route("/register", methods=["GET", "POST"])
+def register():
+
+    if request.method == "POST":
+
+        username = request.form["username"]
+        password = request.form["password"]
+
+        check_user = User.query.filter_by(
+            username=username
+        ).first()
+
+        if check_user:
+            return "Tên đăng nhập đã tồn tại"
+
+        user = User(
+            username=username,
+            password=password
+        )
+
+        db.session.add(user)
+        db.session.commit()
+
+        return redirect("/")
+
+    return render_template("register.html")
+
+# ======================
+# TRANG CHỦ
+# ======================
+@app.route("/index")
+def index():
+
+    if "user" not in session:
+        return redirect("/")
+
+    documents = Document.query.all()
+
+    return render_template(
+        "index.html",
+        documents=documents
+    )
+
+# ======================
+# THÊM TÀI LIỆU
+# ======================
+@app.route("/add", methods=["GET", "POST"])
+def add():
+
+    if "user" not in session:
+        return redirect("/")
+
+    if request.method == "POST":
+
+        title = request.form["title"]
+        category = request.form["category"]
+
+        filename = ""
+
+        file = request.files["file"]
+
+        if file and file.filename != "":
+
+            filename = secure_filename(file.filename)
+
+            file.save(
+                os.path.join(
+                    app.config["UPLOAD_FOLDER"],
+                    filename
+                )
+            )
+
+        doc = Document(
+            title=title,
+            category=category,
+            file_path=filename
+        )
+
+        db.session.add(doc)
+        db.session.commit()
+
+        return redirect("/index")
+
+    return render_template("add.html")
+
+# ======================
+# SỬA
+# ======================
+@app.route("/edit/<int:id>", methods=["GET", "POST"])
+def edit(id):
+
+    if "user" not in session:
+        return redirect("/")
+
+    document = Document.query.get(id)
+
+    if request.method == "POST":
+
+        document.title = request.form["title"]
+        document.category = request.form["category"]
+
+        file = request.files["file"]
+
+        if file and file.filename != "":
+
+            filename = secure_filename(file.filename)
+
+            file.save(
+                os.path.join(
+                    app.config["UPLOAD_FOLDER"],
+                    filename
+                )
+            )
+
+            document.file_path = filename
+
+        db.session.commit()
+
+        return redirect("/index")
+
+    return render_template(
+        "edit.html",
+        document=document
+    )
+
+# ======================
+# XÓA
+# ======================
+@app.route("/delete/<int:id>")
+def delete(id):
+
+    if "user" not in session:
+        return redirect("/")
+
+    document = Document.query.get(id)
+
+    db.session.delete(document)
+    db.session.commit()
+
+    return redirect("/index")
+
+# ======================
+# TÌM KIẾM
+# ======================
+@app.route("/search", methods=["GET", "POST"])
+def search():
+
+    if "user" not in session:
+        return redirect("/")
+
+    results = []
+
+    if request.method == "POST":
+
+        keyword = request.form["keyword"]
+
+        results = Document.query.filter(
+            (Document.title.contains(keyword)) |
+            (Document.category.contains(keyword))
+        ).all()
+
+    return render_template(
+        "search.html",
+        results=results
+    )
+
+# ======================
+# LOGOUT
+# ======================
+@app.route("/logout")
+def logout():
+
+    session.pop("user", None)
+
+    return redirect("/")
+
+if __name__ == "__main__":
+    app.run(debug=True)
