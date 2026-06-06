@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, session, url_for
+from flask import Flask, render_template, request, redirect, session, url_for, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.utils import secure_filename
 import os
@@ -265,6 +265,22 @@ def logout():
     session.pop("user", None)
 
     return redirect("/")
+# ======================
+# TẢI FILE (DOWNLOAD)
+# ======================
+@app.route("/download/<filename>")
+def download_file(filename):
+    # Kiểm tra nếu người dùng chưa đăng nhập thì bắt quay lại trang login
+    if "user" not in session:
+        return redirect("/")
+    
+    # Gửi file từ thư mục uploads về máy người dùng
+    return send_from_directory(
+        app.config["UPLOAD_FOLDER"], 
+        filename, 
+        as_attachment=True # Ép trình duyệt phải tải xuống thay vì mở xem trực tiếp
+    )
+
 
 if __name__ == "__main__":
     app.run(debug=True)
